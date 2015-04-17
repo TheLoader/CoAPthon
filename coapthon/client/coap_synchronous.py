@@ -48,11 +48,11 @@ class HelperClientSynchronous(object):
             request.type = defines.inv_types["CON"]
         serializer = Serializer()
         request.destination = self._endpoint
-        host, port = request.destination
-        print "Message sent to " + host + ":" + str(port)
-        print "----------------------------------------"
-        print request
-        print "----------------------------------------"
+        # host, port = request.destination
+        # print "Message sent to " + host + ":" + str(port)
+        # print "----------------------------------------"
+        # print request
+        # print "----------------------------------------"
         datagram = serializer.serialize(request)
         log.msg("Send datagram")
         self._socket.sendto(datagram, self._endpoint)
@@ -101,7 +101,7 @@ class HelperClientSynchronous(object):
                 # this next if/else is a bit redundant, but illustrates how the
                 # timeout exception is setup
                 if err == 'timed out':
-                    print 'recv timed out, retry later'
+                    print threading.current_thread().getName() + ' recv timed out, retry later'
                     continue
                 else:
                     print e
@@ -118,10 +118,10 @@ class HelperClientSynchronous(object):
             serializer = Serializer()
             host, port = addr
             message = serializer.deserialize(datagram, host, port)
-            print "Message received from " + host + ":" + str(port)
-            print "----------------------------------------"
-            print message
-            print "----------------------------------------"
+            # print "Message received from " + host + ":" + str(port)
+            # print "----------------------------------------"
+            # print message
+            # print "----------------------------------------"
             if isinstance(message, Response):
                 self.handle_response(message)
             elif isinstance(message, Request):

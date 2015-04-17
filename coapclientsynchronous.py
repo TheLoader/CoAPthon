@@ -3,6 +3,7 @@ import getopt
 import sys
 import threading
 from coapthon.client.coap_synchronous import HelperClientSynchronous
+from coapthon.messages.response import Response
 
 client = HelperClientSynchronous()
 
@@ -80,7 +81,8 @@ def main():
             sys.exit(2)
         kwargs = {"path": path}
         response = client.get(**kwargs)
-        print response
+        assert isinstance(response, Response)
+        print response.payload
         return
     elif op == "OBSERVE":
         if path is None:
@@ -132,7 +134,6 @@ def main():
         print "Operation not recognized"
         usage()
         sys.exit(2)
-
 
 
 if __name__ == '__main__':
