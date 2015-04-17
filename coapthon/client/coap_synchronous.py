@@ -92,6 +92,7 @@ class HelperClientSynchronous(object):
     def datagram_received(self):
         # TODO mutex
         self.stop = False
+        attemp = 10
         while not self.stop:
             self._socket.settimeout(2 * defines.ACK_TIMEOUT)
             try:
@@ -102,6 +103,9 @@ class HelperClientSynchronous(object):
                 # timeout exception is setup
                 if err == 'timed out':
                     print threading.current_thread().getName() + ' recv timed out, retry later'
+                    attemp -= 1
+                    if attemp <= 0:
+                        return
                     continue
                 else:
                     print e
