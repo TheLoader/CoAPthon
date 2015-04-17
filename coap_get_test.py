@@ -79,7 +79,7 @@ def main():
 
 def work():
     client = HelperClientSynchronous()
-    kwargs = {"path": "coap://127.0.0.1:5683/basic"}
+    kwargs = {"path": "coap://192.168.2.3:5683/basic"}
     start = datetime.datetime.now()
     response = client.get(**kwargs)
     end = datetime.datetime.now()

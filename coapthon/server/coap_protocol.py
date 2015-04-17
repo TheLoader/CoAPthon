@@ -32,6 +32,8 @@ logfile = DailyLogFile("CoAPthon_server.log", home + "/.coapthon/")
 application = Application("CoAPthon_Server")
 application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 
+DEBUG = False
+
 
 class CoAP(DatagramProtocol):
     def __init__(self, multicast=False):
@@ -91,7 +93,7 @@ class CoAP(DatagramProtocol):
         :param host: destination host
         :param port: destination port
         """
-        if __debug__:
+        if DEBUG:
             print "Message send to " + host + ":" + str(port)
             print "----------------------------------------"
             print message
@@ -111,7 +113,7 @@ class CoAP(DatagramProtocol):
         log.msg("Datagram received from " + str(host) + ":" + str(port))
         serializer = Serializer()
         message = serializer.deserialize(data, host, port)
-        if __debug__:
+        if DEBUG:
             print "Message received from " + host + ":" + str(port)
             print "----------------------------------------"
             print message
