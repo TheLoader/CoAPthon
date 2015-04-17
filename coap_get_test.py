@@ -17,6 +17,7 @@ def usage():
     print "Options:"
     print "\t-r, --rate=\trequest rate [req / sec]"
     print "\t-n, --num=\tnumber of requests"
+    print "\t-i, --iteration=\titeration number"
 
 
 def end_save(obj, name):
@@ -35,8 +36,9 @@ def save_obj(obj, name):
 def main():
     rate = None
     num = None
+    iteration = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hr:n:", ["help", "rate=", "num="])
+        opts, args = getopt.getopt(sys.argv[1:], "hr:n:i:", ["help", "rate=", "num=", "iteration"])
     except getopt.GetoptError as err:
         # print help information and exit:
         print str(err)  # will print something like "option -a not recognized"
@@ -47,6 +49,8 @@ def main():
             rate = float(a)
         elif o in ("-n", "--num"):
             num = int(a)
+        elif o in ("-i", "--iteration"):
+            iteration = int(a)
         elif o in ("-h", "--help"):
             usage()
             sys.exit()
@@ -54,8 +58,8 @@ def main():
             usage()
             sys.exit(2)
 
-    if rate is None or num is None:
-        print "Rate and Number of request must be specified"
+    if rate is None or num is None or iteration is None:
+        print "Rate, Number of request and Iteration must be specified"
         usage()
         sys.exit(2)
 
@@ -71,7 +75,7 @@ def main():
         threads[i].join()
 
     end = datetime.datetime.now()
-    name = "rate_" + str(rate) + "_num_" + str(num)
+    name = "rate_" + str(rate) + "_num_" + str(num) + "_iter_" + str(iteration)
     save_obj(res, name)
     diff = end - start
     end_save("Total time: " + str(diff.total_seconds()), name)
