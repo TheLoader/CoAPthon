@@ -88,9 +88,8 @@ def work():
     response = client.get(**kwargs)
     end = datetime.datetime.now()
     name = threading.current_thread().getName()
-    print name + " finish"
     diff = end - start
-    res[threading.current_thread().getName()] = (diff.total_seconds(), response.payload)
+    res[name] = (diff.total_seconds(), response.payload)
 
 
 if __name__ == '__main__':
