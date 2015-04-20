@@ -225,6 +225,7 @@ class HelperClientSynchronous(object):
             ip, port, path = self.parse_path(path)
             request.destination = (ip, port)
             request.uri_path = path
+            request.type = defines.inv_types["CON"]
             endpoint = (ip, port)
             # request.token = str(random.randint(0, 1000))
             # self._currentMID = random.randint(0, 1000)

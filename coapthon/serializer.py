@@ -1,4 +1,5 @@
-
+import ctypes
+import struct
 from twisted.python import log
 from coapthon import defines
 from coapthon.messages.message import Message
@@ -238,20 +239,30 @@ class Serializer(object):
         #     self._writer.append(pack(fmt, **d))
         #
         # return self._writer.tobytes()
+        fmt = "!BBH"
+
         if message.token is None or message.token == "":
             tkl = 0
         else:
             tkl = len(message.token)
+        tmp = (defines.VERSION << 2)
+        tmp |= message.type
+        tmp <<= 2
+        tmp |= tkl
+        tmp <<= 2
+        values = [tmp, message.code, message.mid]
 
-        self._writer = BitManipulationWriter()
-        self._writer.write_bits(defines.VERSION_BITS, defines.VERSION)
-        self._writer.write_bits(defines.TYPE_BITS, message.type)
-        self._writer.write_bits(defines.TOKEN_LENGTH_BITS, tkl)
-        self._writer.write_bits(defines.CODE_BITS, message.code)
-        self._writer.write_bits(defines.MESSAGE_ID_BITS, message.mid)
-
+        # self._writer = BitManipulationWriter()
+        # self._writer.write_bits(defines.VERSION_BITS, defines.VERSION)
+        # self._writer.write_bits(defines.TYPE_BITS, message.type)
+        # self._writer.write_bits(defines.TOKEN_LENGTH_BITS, tkl)
+        # self._writer.write_bits(defines.CODE_BITS, message.code)
+        # self._writer.write_bits(defines.MESSAGE_ID_BITS, message.mid)
         if message.token is not None and len(message.token) > 0:
-            self._writer.write_bits(len(message.token) * 8, message.token)
+            fmt += "s"
+            values.append(message.token)
+
+            # self._writer.write_bits(len(message.token) * 8, message.token)
 
         options = self.as_sorted_list(message.options)  # already sorted
         lastoptionnumber = 0
@@ -260,27 +271,51 @@ class Serializer(object):
             # write 4-bit option delta
             optiondelta = option.number - lastoptionnumber
             optiondeltanibble = self.get_option_nibble(optiondelta)
-            self._writer.write_bits(defines.OPTION_DELTA_BITS, optiondeltanibble)
+            tmp = (optiondeltanibble << defines.OPTION_DELTA_BITS)
+
+            # self._writer.write_bits(defines.OPTION_DELTA_BITS, optiondeltanibble)
 
             # write 4-bit option length
             optionlength = option.length
             optionlengthnibble = self.get_option_nibble(optionlength)
-            self._writer.write_bits(defines.OPTION_LENGTH_BITS, optionlengthnibble)
+            tmp |= optionlengthnibble
+            # self._writer.write_bits(defines.OPTION_LENGTH_BITS, optionlengthnibble)
+            fmt += "B"
+            values.append(tmp)
 
             # write extended option delta field (0 - 2 bytes)
             if optiondeltanibble == 13:
-                self._writer.write_bits(8, optiondelta - 13)
+                # self._writer.write_bits(8, optiondelta - 13)
+                fmt += "B"
+                values.append(optiondelta - 13)
             elif optiondeltanibble == 14:
-                self._writer.write_bits(16, optiondelta - 296)
+                # self._writer.write_bits(16, optiondelta - 296)
+                fmt += "B"
+                values.append(optiondelta - 296)
 
             # write extended option length field (0 - 2 bytes)
             if optionlengthnibble == 13:
-                self._writer.write_bits(8, optionlength - 13)
+                # self._writer.write_bits(8, optionlength - 13)
+                fmt += "B"
+                values.append(optionlength - 13)
             elif optionlengthnibble == 14:
-                self._writer.write_bits(16, optionlength - 269)
+                # self._writer.write_bits(16, optionlength - 269)
+                fmt += "B"
+                values.append(optionlength - 269)
 
             # write option value
-            self._writer.write_bits(optionlength * 8, option.value)
+            # self._writer.write_bits(optionlength * 8, option.value)
+            name, opt_type, repeatable, defaults = defines.options[option.number]
+            if optionlength == 1 and opt_type == defines.INTEGER:
+                fmt += "B"
+                values.append(option.value)
+            elif optionlength == 2 and opt_type == defines.INTEGER:
+                fmt += "H"
+                values.append(option.value)
+            else:
+                for b in str(option.value):
+                    fmt += "c"
+                    values.append(b)
 
             # update last option number
             lastoptionnumber = option.number
@@ -292,10 +327,20 @@ class Serializer(object):
             # if payload is present and of non-zero length, it is prefixed by
             # an one-byte Payload Marker (0xFF) which indicates the end of
             # options and the start of the payload
-            self._writer.write_bits(8, defines.PAYLOAD_MARKER)
-            self._writer.write_bits(len(payload) * 8, payload)
 
-        return self._writer.stream
+            # self._writer.write_bits(8, defines.PAYLOAD_MARKER)
+            fmt += "B"
+            values.append(defines.PAYLOAD_MARKER)
+
+            # self._writer.write_bits(len(payload) * 8, payload)
+            for b in str(payload):
+                fmt += "c"
+                values.append(b)
+
+        s = struct.Struct(fmt)
+        self._writer = ctypes.create_string_buffer(s.size)
+        s.pack_into(self._writer, 0, *values)
+        return self._writer
 
     @staticmethod
     def get_option_nibble(optionvalue):
@@ -337,4 +382,11 @@ class Serializer(object):
         """
         if length == 0:
             return bytearray()
-        return bytearray(value, "utf-8")
+        if isinstance(value, tuple):
+            value = value[0]
+        if isinstance(value, unicode):
+            value = str(value)
+        if isinstance(value, str):
+            return bytearray(value, "utf-8")
+        else:
+            return bytearray(value)

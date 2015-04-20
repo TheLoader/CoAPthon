@@ -150,7 +150,7 @@ class RequestLayer(object):
         :param request: the request
         :return: the response
         """
-        path = request.uri_path
+        path = request.uri_path.decode()
         response = Response()
         response.destination = request.source
         if path == defines.DISCOVERY_URL:

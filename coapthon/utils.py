@@ -32,11 +32,12 @@ class BitManipulationWriter(object):
     def write_bits(self, num, data):
         num_byte = int(num / 8)
         num_bit = num % 8
-        if num_byte == 0 and (self.pos_bit + num_bit) < 8:
+        if num_byte == 0 and (self.pos_bit + num_bit) <= 8:
             self.tmp <<= self.pos_bit
             self.tmp |= int(data)
             self.pos_bit += num_bit
-        elif num_byte == 0 and (self.pos_bit + num_bit) >= 8:
+            self.pos_bit %= 8
+        elif num_byte == 0 and (self.pos_bit + num_bit) > 8:
             # more bytes involved
             self.tmp <<= self.pos_bit
             buf = int(data)
@@ -57,14 +58,22 @@ class BitManipulationWriter(object):
                 data = bytearray(data, "utf-8")
                 for b in data:
                     self.stream.append(b)
+            elif isinstance(data, bytearray):
+                for b in data:
+                    self.stream.append(b)
             elif isinstance(data, int):
+                i = 0
                 v, r = divmod(data, 256)
                 while True:
                     if v == 0:
+                        for s in range(0, num_byte - i - 1):
+                            self.stream.append(0x00)
                         self.stream.append(r)
                         break
                     self.stream.append(v)
+                    i += 1
                     v, r = divmod(r, 256)
+
             else:
                 raise AttributeError
 
@@ -117,7 +126,14 @@ class BitManipulationReader(object):
                 ret = tmp
             else:
                 # unpack to int
-                ret = struct.unpack("!b", tmp[0])
+                if num_byte == 1:
+                    ret = struct.unpack("!B", str(tmp))
+                    if isinstance(ret, tuple):
+                        ret = ret[0]
+                elif num_byte == 2:
+                    ret = struct.unpack("!H", str(tmp))
+                    if isinstance(ret, tuple):
+                        ret = ret[0]
         elif num_bit == 1 and self.pos_bit == 0:
             mask = 0x80
             ret = (tmp[-1] & mask) >> 7
