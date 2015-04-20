@@ -117,7 +117,7 @@ class BitManipulationReader(object):
                 ret = tmp
             else:
                 # unpack to int
-                ret = struct.unpack("!b", tmp)
+                ret = struct.unpack("!b", tmp[0])
         elif num_bit == 1 and self.pos_bit == 0:
             mask = 0x80
             ret = (tmp[-1] & mask) >> 7
