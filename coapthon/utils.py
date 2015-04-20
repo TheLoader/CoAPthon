@@ -116,6 +116,7 @@ class BitManipulationReader(object):
             elif kind == "opaque":
                 ret = tmp
             else:
+                # unpack to int
                 ret = struct.unpack(">i", tmp)
         elif num_bit == 1 and self.pos_bit == 0:
             mask = 0x80
