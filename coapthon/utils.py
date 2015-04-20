@@ -1,3 +1,4 @@
+import struct
 from coapthon import defines
 
 __author__ = 'Giacomo Tanganelli'
@@ -115,7 +116,7 @@ class BitManipulationReader(object):
             elif kind == "opaque":
                 ret = tmp
             else:
-                ret = int(tmp)
+                ret = struct.unpack(">i", tmp)
         elif num_bit == 1 and self.pos_bit == 0:
             mask = 0x80
             ret = (tmp[-1] & mask) >> 7
