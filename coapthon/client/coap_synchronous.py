@@ -226,6 +226,8 @@ class HelperClientSynchronous(object):
             request.destination = (ip, port)
             request.uri_path = path
             endpoint = (ip, port)
+            # request.token = str(random.randint(0, 1000))
+            # self._currentMID = random.randint(0, 1000)
         request.code = defines.inv_codes["GET"]
         self.send(request, endpoint)
         future_time = random.uniform(defines.ACK_TIMEOUT, (defines.ACK_TIMEOUT * defines.ACK_RANDOM_FACTOR))
@@ -245,6 +247,7 @@ class HelperClientSynchronous(object):
                     print("Give up on message: " + str(request.mid))
                     self.stop = True
                     break
+        self.condition.release()
         message = self._response
         self._response = None
         key = hash(str(ip) + str(port) + str(message.mid))
@@ -255,6 +258,7 @@ class HelperClientSynchronous(object):
             self.condition.wait()
             message = self._response
             self._response = None
+            self.condition.release()
         return message
 
     def observe(self, *args, **kwargs):

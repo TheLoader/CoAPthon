@@ -1,11 +1,13 @@
 #!/bin/python
 import getopt
+import random
 import sys
 import threading
 import datetime
 from time import sleep
 from threading import Thread
 from coapthon.client.coap_synchronous import HelperClientSynchronous
+from coapthon.messages.request import Request
 
 
 res = {}

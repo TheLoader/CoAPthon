@@ -1,10 +1,11 @@
-from bitstring import BitStream, ReadError, pack, BitArray
+
 from twisted.python import log
 from coapthon import defines
 from coapthon.messages.message import Message
 from coapthon.messages.option import Option
 from coapthon.messages.request import Request
 from coapthon.messages.response import Response
+from coapthon.utils import BitManipulationReader, BitManipulationWriter
 
 __author__ = 'Giacomo Tanganelli'
 __version__ = "2.0"
@@ -31,12 +32,19 @@ class Serializer(object):
         :param port: source port
         :return: the message
         """
-        self._reader = BitStream(bytes=raw, length=(len(raw) * 8))
-        version = self._reader.read(defines.VERSION_BITS).uint
-        message_type = self._reader.read(defines.TYPE_BITS).uint
-        token_length = self._reader.read(defines.TOKEN_LENGTH_BITS).uint
-        code = self._reader.read(defines.CODE_BITS).uint
-        mid = self._reader.read(defines.MESSAGE_ID_BITS).uint
+        stream = bytearray(raw)
+        self._reader = BitManipulationReader(stream)
+        version = self._reader.read_bits(defines.VERSION_BITS, "uint")
+        message_type = self._reader.read_bits(defines.TYPE_BITS, "uint")
+        token_length = self._reader.read_bits(defines.TOKEN_LENGTH_BITS, "uint")
+        code = self._reader.read_bits(defines.CODE_BITS, "uint")
+        mid = self._reader.read_bits(defines.MESSAGE_ID_BITS, "uint")
+        # self._reader = BitStream(bytes=raw, length=(len(raw) * 8))
+        # version = self._reader.read(defines.VERSION_BITS).uint
+        # message_type = self._reader.read(defines.TYPE_BITS).uint
+        # token_length = self._reader.read(defines.TOKEN_LENGTH_BITS).uint
+        # code = self._reader.read(defines.CODE_BITS).uint
+        # mid = self._reader.read(defines.MESSAGE_ID_BITS).uint
         if self.is_response(code):
             message = Response()
             message.code = code
@@ -52,51 +60,55 @@ class Serializer(object):
         message._mid = mid
 
         if token_length > 0:
-            message.token = self._reader.read(token_length * 8).bytes
+            # message.token = self._reader.read(token_length * 8).bytes
+            message.token = self._reader.read_bits(token_length * 8, "str")
         else:
             message.token = None
 
         current_option = 0
-        try:
-            while self._reader.pos < self._reader.len:
-                next_byte = self._reader.peek(8).uint
-                if next_byte != int(defines.PAYLOAD_MARKER):
-                    # the first 4 bits of the byte represent the option delta
-                    delta = self._reader.read(4).uint
-                    # the second 4 bits represent the option length
-                    length = self._reader.read(4).uint
-                    current_option += self.read_option_value_from_nibble(delta)
-                    option_length = self.read_option_value_from_nibble(length)
+        while self._reader.pos < self._reader.len:
+            # next_byte = self._reader.peek(8).uint
+            next_byte = self._reader.peek_bits(8)
+            if next_byte != int(defines.PAYLOAD_MARKER):
+                # the first 4 bits of the byte represent the option delta
+                # delta = self._reader.read(4).uint
+                delta = self._reader.read_bits(4)
+                # the second 4 bits represent the option length
+                # length = self._reader.read(4).uint
+                length = self._reader.read_bits(4)
+                current_option += self.read_option_value_from_nibble(delta)
+                option_length = self.read_option_value_from_nibble(length)
 
-                    # read option
-                    try:
-                        option_name, option_type, option_repeatable, default = defines.options[current_option]
-                    except KeyError:
-                        log.err("unrecognized option")
-                        return message, "BAD_OPTION"
-                    if option_length == 0:
-                        value = None
-                    elif option_type == defines.INTEGER:
-                        value = self._reader.read(option_length * 8).uint
-                    else:
-                        value = self._reader.read(option_length * 8).bytes
-
-                    option = Option()
-                    option.number = current_option
-                    option.value = self.convert_to_raw(current_option, value, option_length)
-
-                    message.add_option(option)
+                # read option
+                try:
+                    option_name, option_type, option_repeatable, default = defines.options[current_option]
+                except KeyError:
+                    log.err("unrecognized option")
+                    return message, "BAD_OPTION"
+                if option_length == 0:
+                    value = None
+                elif option_type == defines.INTEGER:
+                    # value = self._reader.read(option_length * 8).uint
+                    value = self._reader.read_bits(option_length * 8, "uint")
                 else:
-                    self._reader.pos += 8  # skip payload marker
-                    if self._reader.len <= self._reader.pos:
-                        log.err("Payload Marker with no payload")
-                        return message, "BAD_REQUEST"
-                    to_end = self._reader.len - self._reader.pos
-                    message.payload = self._reader.read(to_end).bytes
-            return message
-        except ReadError, e:
-            log.err("Error parsing message: " + str(e))
-        return None
+                    # value = self._reader.read(option_length * 8).bytes
+                    value = self._reader.read_bits(option_length * 8, kind='str')
+
+                option = Option()
+                option.number = current_option
+                option.value = self.convert_to_raw(current_option, value, option_length)
+
+                message.add_option(option)
+            else:
+                # self._reader.pos += 8  # skip payload marker
+                self._reader.pos_byte += 1  # skip payload marker
+                if self._reader.len <= self._reader.pos:
+                    log.err("Payload Marker with no payload")
+                    return message, "BAD_REQUEST"
+                to_end = self._reader.len - self._reader.pos
+                # message.payload = self._reader.read(to_end).bytes
+                message.payload = self._reader.read_bits(to_end, "opaque")
+        return message
 
     @staticmethod
     def is_request(code):
@@ -140,26 +152,106 @@ class Serializer(object):
         :param message: the message
         :return: the stream of bytes
         """
-        fmt = 'uint:' + str(defines.VERSION_BITS) + '=version,' \
-            'uint:' + str(defines.TYPE_BITS) + '=type,' \
-            'uint:' + str(defines.TOKEN_LENGTH_BITS) + '=tokenlen,' \
-            'uint:' + str(defines.CODE_BITS) + '=code,' \
-            'uint:' + str(defines.MESSAGE_ID_BITS) + '=mid'
-        d = {'version': defines.VERSION,
-             'type': message.type,
-             'code': message.code,
-             'mid': message.mid}
+        # fmt = 'uint:' + str(defines.VERSION_BITS) + '=version,' \
+        #     'uint:' + str(defines.TYPE_BITS) + '=type,' \
+        #     'uint:' + str(defines.TOKEN_LENGTH_BITS) + '=tokenlen,' \
+        #     'uint:' + str(defines.CODE_BITS) + '=code,' \
+        #     'uint:' + str(defines.MESSAGE_ID_BITS) + '=mid'
+        # d = {'version': defines.VERSION,
+        #      'type': message.type,
+        #      'code': message.code,
+        #      'mid': message.mid}
+        # if message.token is None or message.token == "":
+        #     d['tokenlen'] = 0
+        # else:
+        #     d['tokenlen'] = len(message.token)
+        #
+        # self._writer = pack(fmt, **d)
+        #
+        # if message.token is not None and len(message.token) > 0:
+        #     fmt = 'bytes:' + str(len(message.token)) + '=token'
+        #     d = {'token': message.token}
+        #     self._writer.append(pack(fmt, **d))
+        #
+        # options = self.as_sorted_list(message.options)  # already sorted
+        # lastoptionnumber = 0
+        # for option in options:
+        #
+        #     # write 4-bit option delta
+        #     optiondelta = option.number - lastoptionnumber
+        #     optiondeltanibble = self.get_option_nibble(optiondelta)
+        #     fmt = 'uint:' + str(defines.OPTION_DELTA_BITS) + '=delta'
+        #     d = {'delta': optiondeltanibble}
+        #     self._writer.append(pack(fmt, **d))
+        #     # self._writer.write(optiondeltanibble, defines.OPTION_DELTA_BITS)
+        #
+        #     # write 4-bit option length
+        #     optionlength = option.length
+        #     optionlengthnibble = self.get_option_nibble(optionlength)
+        #     fmt = 'uint:' + str(defines.OPTION_LENGTH_BITS) + '=len'
+        #     d = {'len': optionlengthnibble}
+        #     self._writer.append(pack(fmt, **d))
+        #     # self._writer.write(optionlengthnibble, defines.OPTION_LENGTH_BITS)
+        #
+        #     # write extended option delta field (0 - 2 bytes)
+        #     if optiondeltanibble == 13:
+        #         fmt = 'uint:8=delta'
+        #         d = {'delta': optiondelta - 13}
+        #         self._writer.append(pack(fmt, **d))
+        #         # self._writer.write(optiondelta - 13, 8)
+        #     elif optiondeltanibble == 14:
+        #         fmt = 'uint:16=delta'
+        #         d = {'delta': optiondelta - 269}
+        #         self._writer.append(pack(fmt, **d))
+        #         # self._writer.write(optiondelta - 269, 16)
+        #
+        #     # write extended option length field (0 - 2 bytes)
+        #     if optionlengthnibble == 13:
+        #         fmt = 'uint:8=len'
+        #         d = {'len': optionlength - 13}
+        #         self._writer.append(pack(fmt, **d))
+        #         # self._writer.write(optionlength - 13, 8)
+        #     elif optionlengthnibble == 14:
+        #         fmt = 'uint:16=len'
+        #         d = {'len': optionlength - 269}
+        #         self._writer.append(pack(fmt, **d))
+        #         # self._writer.write(optionlength - 269, 16)
+        #
+        #     # write option value
+        #     fmt = 'bytes:'+str(optionlength)+'=option'
+        #     d = {'option': option.raw_value.tobytes()}
+        #     self._writer.append(pack(fmt, **d))
+        #     # self._writer.writeBytes(option.getValue())
+        #
+        #     # update last option number
+        #     lastoptionnumber = option.number
+        #
+        # payload = message.payload
+        # if isinstance(payload, dict):
+        #     payload = payload.get("Payload")
+        # if payload is not None and len(payload) > 0:
+        #     # if payload is present and of non-zero length, it is prefixed by
+        #     # an one-byte Payload Marker (0xFF) which indicates the end of
+        #     # options and the start of the payload
+        #     fmt = 'uint:8=marker, bytes:' + str(len(payload)) + '=payload'
+        #     d = {'marker': str(defines.PAYLOAD_MARKER), 'payload': payload}
+        #     self._writer.append(pack(fmt, **d))
+        #
+        # return self._writer.tobytes()
         if message.token is None or message.token == "":
-            d['tokenlen'] = 0
+            tkl = 0
         else:
-            d['tokenlen'] = len(message.token)
+            tkl = len(message.token)
 
-        self._writer = pack(fmt, **d)
+        self._writer = BitManipulationWriter()
+        self._writer.write_bits(defines.VERSION_BITS, defines.VERSION)
+        self._writer.write_bits(defines.TYPE_BITS, message.type)
+        self._writer.write_bits(defines.TOKEN_LENGTH_BITS, tkl)
+        self._writer.write_bits(defines.CODE_BITS, message.code)
+        self._writer.write_bits(defines.MESSAGE_ID_BITS, message.mid)
 
         if message.token is not None and len(message.token) > 0:
-            fmt = 'bytes:' + str(len(message.token)) + '=token'
-            d = {'token': message.token}
-            self._writer.append(pack(fmt, **d))
+            self._writer.write_bits(len(message.token) * 8, message.token)
 
         options = self.as_sorted_list(message.options)  # already sorted
         lastoptionnumber = 0
@@ -168,48 +260,27 @@ class Serializer(object):
             # write 4-bit option delta
             optiondelta = option.number - lastoptionnumber
             optiondeltanibble = self.get_option_nibble(optiondelta)
-            fmt = 'uint:' + str(defines.OPTION_DELTA_BITS) + '=delta'
-            d = {'delta': optiondeltanibble}
-            self._writer.append(pack(fmt, **d))
-            # self._writer.write(optiondeltanibble, defines.OPTION_DELTA_BITS)
+            self._writer.write_bits(defines.OPTION_DELTA_BITS, optiondeltanibble)
 
             # write 4-bit option length
             optionlength = option.length
             optionlengthnibble = self.get_option_nibble(optionlength)
-            fmt = 'uint:' + str(defines.OPTION_LENGTH_BITS) + '=len'
-            d = {'len': optionlengthnibble}
-            self._writer.append(pack(fmt, **d))
-            # self._writer.write(optionlengthnibble, defines.OPTION_LENGTH_BITS)
+            self._writer.write_bits(defines.OPTION_LENGTH_BITS, optionlengthnibble)
 
             # write extended option delta field (0 - 2 bytes)
             if optiondeltanibble == 13:
-                fmt = 'uint:8=delta'
-                d = {'delta': optiondelta - 13}
-                self._writer.append(pack(fmt, **d))
-                # self._writer.write(optiondelta - 13, 8)
+                self._writer.write_bits(8, optiondelta - 13)
             elif optiondeltanibble == 14:
-                fmt = 'uint:16=delta'
-                d = {'delta': optiondelta - 269}
-                self._writer.append(pack(fmt, **d))
-                # self._writer.write(optiondelta - 269, 16)
+                self._writer.write_bits(16, optiondelta - 296)
 
             # write extended option length field (0 - 2 bytes)
             if optionlengthnibble == 13:
-                fmt = 'uint:8=len'
-                d = {'len': optionlength - 13}
-                self._writer.append(pack(fmt, **d))
-                # self._writer.write(optionlength - 13, 8)
+                self._writer.write_bits(8, optionlength - 13)
             elif optionlengthnibble == 14:
-                fmt = 'uint:16=len'
-                d = {'len': optionlength - 269}
-                self._writer.append(pack(fmt, **d))
-                # self._writer.write(optionlength - 269, 16)
+                self._writer.write_bits(16, optionlength - 269)
 
             # write option value
-            fmt = 'bytes:'+str(optionlength)+'=option'
-            d = {'option': option.raw_value.tobytes()}
-            self._writer.append(pack(fmt, **d))
-            # self._writer.writeBytes(option.getValue())
+            self._writer.write_bits(optionlength * 8, option.value)
 
             # update last option number
             lastoptionnumber = option.number
@@ -221,11 +292,10 @@ class Serializer(object):
             # if payload is present and of non-zero length, it is prefixed by
             # an one-byte Payload Marker (0xFF) which indicates the end of
             # options and the start of the payload
-            fmt = 'uint:8=marker, bytes:' + str(len(payload)) + '=payload'
-            d = {'marker': str(defines.PAYLOAD_MARKER), 'payload': payload}
-            self._writer.append(pack(fmt, **d))
+            self._writer.write_bits(8, defines.PAYLOAD_MARKER)
+            self._writer.write_bits(len(payload) * 8, payload)
 
-        return self._writer.tobytes()
+        return self._writer.stream
 
     @staticmethod
     def get_option_nibble(optionvalue):
@@ -266,9 +336,5 @@ class Serializer(object):
         :return: the value of an option as a BitArray
         """
         if length == 0:
-            return BitArray()
-        name, value_type, repeatable, default = defines.options[number]
-        if value_type == defines.INTEGER:
-            return BitArray(uint=value, length=length * 8)
-        else:
-            return BitArray(bytes=value, length=length * 8)
+            return bytearray()
+        return bytearray(value, "utf-8")
