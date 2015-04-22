@@ -16,7 +16,7 @@ __author__ = 'giacomo'
 
 class HelperClientSynchronous(object):
     def __init__(self):
-        self._currentMID = 100
+        self._currentMID = random.randint(0, 100)
         self.relation = {}
         self.received = {}
         self.sent = {}

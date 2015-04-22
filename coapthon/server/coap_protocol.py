@@ -32,7 +32,7 @@ logfile = DailyLogFile("CoAPthon_server.log", home + "/.coapthon/")
 application = Application("CoAPthon_Server")
 application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 
-DEBUG = True
+DEBUG = False
 
 
 class CoAP(DatagramProtocol):
