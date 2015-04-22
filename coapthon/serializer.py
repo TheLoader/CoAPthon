@@ -6,7 +6,6 @@ from coapthon.messages.message import Message
 from coapthon.messages.option import Option
 from coapthon.messages.request import Request
 from coapthon.messages.response import Response
-from coapthon.utils import BitManipulationReader, BitManipulationWriter
 
 __author__ = 'Giacomo Tanganelli'
 __version__ = "2.0"
@@ -16,6 +15,7 @@ class Serializer(object):
     """
     Class for serialize and de-serialize messages.
     """
+
     def __init__(self):
         """
         Initialize a Serializer.
@@ -33,19 +33,88 @@ class Serializer(object):
         :param port: source port
         :return: the message
         """
-        stream = bytearray(raw)
-        self._reader = BitManipulationReader(stream)
-        version = self._reader.read_bits(defines.VERSION_BITS, "uint")
-        message_type = self._reader.read_bits(defines.TYPE_BITS, "uint")
-        token_length = self._reader.read_bits(defines.TOKEN_LENGTH_BITS, "uint")
-        code = self._reader.read_bits(defines.CODE_BITS, "uint")
-        mid = self._reader.read_bits(defines.MESSAGE_ID_BITS, "uint")
-        # self._reader = BitStream(bytes=raw, length=(len(raw) * 8))
-        # version = self._reader.read(defines.VERSION_BITS).uint
-        # message_type = self._reader.read(defines.TYPE_BITS).uint
-        # token_length = self._reader.read(defines.TOKEN_LENGTH_BITS).uint
-        # code = self._reader.read(defines.CODE_BITS).uint
-        # mid = self._reader.read(defines.MESSAGE_ID_BITS).uint
+        # stream = bytearray(raw)
+        # self._reader = BitManipulationReader(stream)
+        # version = self._reader.read_bits(defines.VERSION_BITS, "uint")
+        # message_type = self._reader.read_bits(defines.TYPE_BITS, "uint")
+        # token_length = self._reader.read_bits(defines.TOKEN_LENGTH_BITS, "uint")
+        # code = self._reader.read_bits(defines.CODE_BITS, "uint")
+        # mid = self._reader.read_bits(defines.MESSAGE_ID_BITS, "uint")
+        # # self._reader = BitStream(bytes=raw, length=(len(raw) * 8))
+        # # version = self._reader.read(defines.VERSION_BITS).uint
+        # # message_type = self._reader.read(defines.TYPE_BITS).uint
+        # # token_length = self._reader.read(defines.TOKEN_LENGTH_BITS).uint
+        # # code = self._reader.read(defines.CODE_BITS).uint
+        # # mid = self._reader.read(defines.MESSAGE_ID_BITS).uint
+        # if self.is_response(code):
+        # message = Response()
+        #     message.code = code
+        # elif self.is_request(code):
+        #     message = Request()
+        #     message.code = code
+        # else:
+        #     message = Message()
+        # message.source = (host, port)
+        # message.destination = None
+        # message.version = version
+        # message.type = message_type
+        # message._mid = mid
+        #
+        # if token_length > 0:
+        #     # message.token = self._reader.read(token_length * 8).bytes
+        #     message.token = self._reader.read_bits(token_length * 8, "str")
+        # else:
+        #     message.token = None
+        #
+        # current_option = 0
+        # while self._reader.pos < self._reader.len:
+        #     # next_byte = self._reader.peek(8).uint
+        #     next_byte = self._reader.peek_bits(8)
+        #     if next_byte != int(defines.PAYLOAD_MARKER):
+        #         # the first 4 bits of the byte represent the option delta
+        #         # delta = self._reader.read(4).uint
+        #         delta = self._reader.read_bits(4)
+        #         # the second 4 bits represent the option length
+        #         # length = self._reader.read(4).uint
+        #         length = self._reader.read_bits(4)
+        #         current_option += self.read_option_value_from_nibble(delta)
+        #         option_length = self.read_option_value_from_nibble(length)
+        #
+        #         # read option
+        #         try:
+        #             option_name, option_type, option_repeatable, default = defines.options[current_option]
+        #         except KeyError:
+        #             log.err("unrecognized option")
+        #             return message, "BAD_OPTION"
+        #         if option_length == 0:
+        #             value = None
+        #         elif option_type == defines.INTEGER:
+        #             # value = self._reader.read(option_length * 8).uint
+        #             value = self._reader.read_bits(option_length * 8, "uint")
+        #         else:
+        #             # value = self._reader.read(option_length * 8).bytes
+        #             value = self._reader.read_bits(option_length * 8, kind='str')
+        #
+        #         option = Option()
+        #         option.number = current_option
+        #         option.value = self.convert_to_raw(current_option, value, option_length)
+        #
+        #         message.add_option(option)
+        #     else:
+        #         # self._reader.pos += 8  # skip payload marker
+        #         self._reader.pos_byte += 1  # skip payload marker
+        #         if self._reader.len <= self._reader.pos:
+        #             log.err("Payload Marker with no payload")
+        #             return message, "BAD_REQUEST"
+        #         to_end = self._reader.len - self._reader.pos
+        #         # message.payload = self._reader.read(to_end).bytes
+        #         message.payload = self._reader.read_bits(to_end, "opaque")
+        # return message
+        fmt = "!BBH"
+        first, code, mid = struct.unpack(fmt, str(raw[0:4]))
+        version = (first & 0xC0) >> 6
+        message_type = (first & 0x30) >> 4
+        token_length = (first & 0x0F)
         if self.is_response(code):
             message = Response()
             message.code = code
@@ -60,26 +129,34 @@ class Serializer(object):
         message.type = message_type
         message._mid = mid
 
+        fmt = "!"
+        pos = 4
         if token_length > 0:
-            # message.token = self._reader.read(token_length * 8).bytes
-            message.token = self._reader.read_bits(token_length * 8, "str")
+            for b in range(0, token_length):
+                fmt += "c"
+            tmp = struct.unpack(fmt, str(raw[pos:pos + token_length]))
+            for b in tmp:
+                message.token += b
         else:
             message.token = None
 
+        pos += token_length
         current_option = 0
-        while self._reader.pos < self._reader.len:
-            # next_byte = self._reader.peek(8).uint
-            next_byte = self._reader.peek_bits(8)
+
+        while pos < len(raw):
+            tmp = struct.unpack("!B", raw[pos:pos + 1])
+            next_byte = tmp[0]
+            pos += 1
             if next_byte != int(defines.PAYLOAD_MARKER):
                 # the first 4 bits of the byte represent the option delta
                 # delta = self._reader.read(4).uint
-                delta = self._reader.read_bits(4)
+                delta = (next_byte & 0xF0) >> 4
                 # the second 4 bits represent the option length
                 # length = self._reader.read(4).uint
-                length = self._reader.read_bits(4)
-                current_option += self.read_option_value_from_nibble(delta)
-                option_length = self.read_option_value_from_nibble(length)
-
+                length = (next_byte & 0x0F)
+                num, pos = self.read_option_value_from_nibble(delta, pos, raw)
+                option_length, pos = self.read_option_value_from_nibble(length, pos, raw)
+                current_option += num
                 # read option
                 try:
                     option_name, option_type, option_repeatable, default = defines.options[current_option]
@@ -90,26 +167,41 @@ class Serializer(object):
                     value = None
                 elif option_type == defines.INTEGER:
                     # value = self._reader.read(option_length * 8).uint
-                    value = self._reader.read_bits(option_length * 8, "uint")
+                    fmt = "!"
+                    for b in range(0, option_length):
+                        fmt += "B"
+                    tmp = struct.unpack(fmt, raw[pos: pos + option_length])
+                    value = 0
+                    for b in tmp:
+                        value = (value << 8) | b
                 else:
-                    # value = self._reader.read(option_length * 8).bytes
-                    value = self._reader.read_bits(option_length * 8, kind='str')
+                    for b in range(0, option_length):
+                        fmt += "c"
+                    tmp = struct.unpack(fmt, raw[pos: pos + option_length])
+                    value = ""
+                    for b in tmp:
+                        value += str(b)
 
+                pos += option_length
                 option = Option()
                 option.number = current_option
                 option.value = self.convert_to_raw(current_option, value, option_length)
 
                 message.add_option(option)
             else:
-                # self._reader.pos += 8  # skip payload marker
-                self._reader.pos_byte += 1  # skip payload marker
-                if self._reader.len <= self._reader.pos:
+
+                if len(raw) <= pos:
                     log.err("Payload Marker with no payload")
                     return message, "BAD_REQUEST"
-                to_end = self._reader.len - self._reader.pos
-                # message.payload = self._reader.read(to_end).bytes
-                message.payload = self._reader.read_bits(to_end, "opaque")
+                message.payload = ""
+                fmt = "!"
+                while pos < len(raw):
+                    fmt += "c"
+                payload = struct.unpack(fmt, raw[pos:])
+                for b in payload:
+                    message.payload += str(b)
         return message
+
 
     @staticmethod
     def is_request(code):
@@ -129,7 +221,7 @@ class Serializer(object):
         """
         return defines.RESPONSE_CODE_LOWER_BOUND <= code <= defines.RESPONSE_CODE_UPPER_BOUND
 
-    def read_option_value_from_nibble(self, nibble):
+    def read_option_value_from_nibble(self, nibble, pos, raw):
         """
         Calculates the value used in the extended option fields.
 
@@ -137,12 +229,15 @@ class Serializer(object):
         :return: the value calculated from the nibble and the extended option value.
         """
         if nibble <= 12:
-            return nibble
+            return nibble, pos
         elif nibble == 13:
-            tmp = self._reader.read(8).uint + 13
-            return tmp
+            tmp = int(struct.unpack("!B", raw[pos:pos + 1])) + 13
+            pos += 1
+            return tmp, pos
         elif nibble == 14:
-            return self._reader.read(16).uint + 269
+            tmp = int(struct.unpack("!H", raw[pos:pos + 2])) + 269
+            pos += 2
+            return tmp, pos
         else:
             raise ValueError("Unsupported option nibble " + nibble)
 
@@ -154,7 +249,7 @@ class Serializer(object):
         :return: the stream of bytes
         """
         # fmt = 'uint:' + str(defines.VERSION_BITS) + '=version,' \
-        #     'uint:' + str(defines.TYPE_BITS) + '=type,' \
+        # 'uint:' + str(defines.TYPE_BITS) + '=type,' \
         #     'uint:' + str(defines.TOKEN_LENGTH_BITS) + '=tokenlen,' \
         #     'uint:' + str(defines.CODE_BITS) + '=code,' \
         #     'uint:' + str(defines.MESSAGE_ID_BITS) + '=mid'
@@ -259,10 +354,11 @@ class Serializer(object):
         # self._writer.write_bits(defines.CODE_BITS, message.code)
         # self._writer.write_bits(defines.MESSAGE_ID_BITS, message.mid)
         if message.token is not None and len(message.token) > 0:
-            fmt += "s"
-            values.append(message.token)
+            for b in str(message.token):
+                fmt += "c"
+                values.append(b)
 
-            # self._writer.write_bits(len(message.token) * 8, message.token)
+                # self._writer.write_bits(len(message.token) * 8, message.token)
 
         options = self.as_sorted_list(message.options)  # already sorted
         lastoptionnumber = 0
