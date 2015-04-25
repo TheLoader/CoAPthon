@@ -352,9 +352,8 @@ class Serializer(object):
             tkl = len(message.token)
         tmp = (defines.VERSION << 2)
         tmp |= message.type
-        tmp <<= 2
+        tmp <<= 4
         tmp |= tkl
-        tmp <<= 2
         values = [tmp, message.code, message.mid]
 
         # self._writer = BitManipulationWriter()
