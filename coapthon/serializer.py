@@ -143,7 +143,7 @@ class Serializer(object):
         message._mid = mid
         pos = 3
         if token_length > 0:
-                message.token = values[pos: pos + token_length]
+                message.token = "".join(values[pos: pos + token_length])
         else:
             message.token = None
 
