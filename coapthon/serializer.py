@@ -149,8 +149,8 @@ class Serializer(object):
 
         pos += token_length
         current_option = 0
-        length = len(values)
-        while pos < length:
+        length_packet = len(values)
+        while pos < length_packet:
             next_byte = struct.unpack("B", values[pos])[0]
             pos += 1
             if next_byte != int(defines.PAYLOAD_MARKER):
@@ -191,13 +191,14 @@ class Serializer(object):
                 message.add_option(option)
             else:
 
-                if length <= pos:
+                if length_packet <= pos:
                     log.err("Payload Marker with no payload")
                     return message, "BAD_REQUEST"
                 message.payload = ""
                 payload = values[pos:]
                 for b in payload:
                     message.payload += str(b)
+                    pos += 1
         return message
 
 
