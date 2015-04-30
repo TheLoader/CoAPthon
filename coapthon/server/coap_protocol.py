@@ -49,7 +49,7 @@ class CoAP(DatagramProtocol):
         self._currentMID = random.randint(1, 1000)
 
         # Create the resource Tree
-        root = Resource('root', self, visible=False, observable=False, allow_children=True)
+        root = Resource('root', visible=False, observable=False, allow_children=True)
         root.path = '/'
         self.root = Tree(root)
 
