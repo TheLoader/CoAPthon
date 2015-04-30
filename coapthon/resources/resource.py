@@ -8,7 +8,7 @@ class Resource(object):
     """
     The Resource class.
     """
-    def __init__(self, name, coap_server=None, visible=True, observable=True, allow_children=True):
+    def __init__(self, name, visible=True, observable=True, allow_children=True):
         """
         Initialize a new Resource.
 
@@ -30,7 +30,6 @@ class Resource(object):
             self._etag = name.etag
             self._location_query = name.location_query
             self._max_age = name.max_age
-            self._coap_server = name._coap_server
         else:
             # The attributes of this resource.
             self._attributes = {}
@@ -60,8 +59,6 @@ class Resource(object):
             self._location_query = []
 
             self._max_age = None
-
-            self._coap_server = coap_server
 
     @property
     def etag(self):
@@ -422,7 +419,4 @@ class Resource(object):
         :param request: the request
         """
         return -1
-
-    def notify_clients(self):
-        self._coap_server.notify(self)
 

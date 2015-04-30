@@ -6,8 +6,8 @@ __version__ = "2.0"
 
 
 class BasicResource(Resource):
-    def __init__(self, name="BasicResource", coap_server=None):
-        super(BasicResource, self).__init__(name, coap_server, visible=True,
+    def __init__(self, name="BasicResource"):
+        super(BasicResource, self).__init__(name, visible=True,
                                             observable=True, allow_children=True)
         self.payload = "Basic Resource"
 
@@ -28,8 +28,8 @@ class BasicResource(Resource):
 
 
 class Storage(Resource):
-    def __init__(self, name="StorageResource", coap_server=None):
-        super(Storage, self).__init__(name, coap_server, visible=True, observable=True, allow_children=True)
+    def __init__(self, name="StorageResource"):
+        super(Storage, self).__init__(name,  visible=True, observable=True, allow_children=True)
         self.payload = "Storage Resource for PUT, POST and DELETE"
 
     def render_GET(self, request):
@@ -42,8 +42,8 @@ class Storage(Resource):
 
 
 class Child(Resource):
-    def __init__(self, name="ChildResource", coap_server=None):
-        super(Child, self).__init__(name, coap_server, visible=True, observable=True, allow_children=True)
+    def __init__(self, name="ChildResource"):
+        super(Child, self).__init__(name,  visible=True, observable=True, allow_children=True)
         self.payload = ""
 
     def render_GET(self, request):
@@ -64,8 +64,8 @@ class Child(Resource):
 
 class Separate(Resource):
 
-    def __init__(self, name="Separate", coap_server=None):
-        super(Separate, self).__init__(name, coap_server, visible=True, observable=True, allow_children=True)
+    def __init__(self, name="Separate"):
+        super(Separate, self).__init__(name,  visible=True, observable=True, allow_children=True)
         self.payload = "Separate"
 
     def render_GET(self, request):
@@ -78,8 +78,8 @@ class Separate(Resource):
 
 class Long(Resource):
 
-    def __init__(self, name="Long", coap_server=None):
-        super(Long, self).__init__(name, coap_server, visible=True, observable=True, allow_children=True)
+    def __init__(self, name="Long"):
+        super(Long, self).__init__(name,  visible=True, observable=True, allow_children=True)
         self.payload = "Long Time"
 
     def render_GET(self, request):
@@ -89,8 +89,8 @@ class Long(Resource):
 
 class Big(Resource):
 
-    def __init__(self, name="Big", coap_server=None):
-        super(Big, self).__init__(name, coap_server, visible=True, observable=True, allow_children=True)
+    def __init__(self, name="Big"):
+        super(Big, self).__init__(name,  visible=True, observable=True, allow_children=True)
         self.payload = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sollicitudin fermentum ornare. " \
                        "Cras accumsan tellus quis dui lacinia eleifend. Proin ultrices rutrum orci vitae luctus. " \
                        "Nullam malesuada pretium elit, at aliquam odio vehicula in. Etiam nec maximus elit. " \
