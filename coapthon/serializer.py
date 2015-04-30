@@ -142,14 +142,14 @@ class Serializer(object):
         message._mid = mid
         pos = 3
         if token_length > 0:
-                message.token = values[pos: pos + token_length]
+                message.token = "".join(values[pos: pos + token_length])
         else:
             message.token = None
 
         pos += token_length
         current_option = 0
-        length = len(values)
-        while pos < length:
+        length_packet = len(values)
+        while pos < length_packet:
             next_byte = struct.unpack("B", values[pos])[0]
             pos += 1
             if next_byte != int(defines.PAYLOAD_MARKER):
@@ -190,13 +190,14 @@ class Serializer(object):
                 message.add_option(option)
             else:
 
-                if length <= pos:
+                if length_packet <= pos:
                     log.err("Payload Marker with no payload")
                     return message, "BAD_REQUEST"
                 message.payload = ""
                 payload = values[pos:]
                 for b in payload:
                     message.payload += str(b)
+                    pos += 1
         return message
 
 
@@ -351,9 +352,8 @@ class Serializer(object):
             tkl = len(message.token)
         tmp = (defines.VERSION << 2)
         tmp |= message.type
-        tmp <<= 2
+        tmp <<= 4
         tmp |= tkl
-        tmp <<= 2
         values = [tmp, message.code, message.mid]
 
         # self._writer = BitManipulationWriter()
