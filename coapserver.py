@@ -1,11 +1,9 @@
 #!/bin/python
 from twisted.internet import reactor
-from coapthon import defines
 from coapthon.server.coap_protocol import CoAP
 from example_resources import Storage, Separate, BasicResource, Long, Big
-
 import twisted.internet.base
-twisted.internet.base.DelayedCall.debug = True
+twisted.internet.base.DelayedCall.debug = False
 
 
 class CoAPServer(CoAP):

@@ -6,7 +6,6 @@ from coapthon.messages.message import Message
 from coapthon.messages.option import Option
 from coapthon.messages.request import Request
 from coapthon.messages.response import Response
-from coapthon.utils import BitManipulationReader
 
 __author__ = 'Giacomo Tanganelli'
 __version__ = "2.0"
