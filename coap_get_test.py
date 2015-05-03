@@ -32,7 +32,10 @@ def save_obj(obj, name):
         f.write("Name\tSeconds\tPayload\n")
         for k, v in obj.items():
             elapsed, payload = v
-            f.write(k + "\t" + str(elapsed) + "\t" + payload + "\n")
+            if payload is None:
+                f.write(k + "\t" + str(elapsed) + "\tERROR\n")
+            else:
+                f.write(k + "\t" + str(elapsed) + "\t" + payload + "\n")
 
 
 def main():
@@ -65,12 +68,16 @@ def main():
         usage()
         sys.exit(2)
 
+    for i in range(0, num):
+        threads[i] = Thread(target=work)
+    print "thread created"
+
     interval = 1 / rate
 
     start = datetime.datetime.now()
     for i in range(0, num):
         sleep(interval)
-        threads[i] = Thread(target=work)
+        # threads[i] = Thread(target=work)
         threads[i].start()
 
     for i in range(0, num):
@@ -85,13 +92,17 @@ def main():
 
 def work():
     client = HelperClientSynchronous()
-    kwargs = {"path": "coap://127.0.0.1:5683/basic"}
+    kwargs = {"path": "coap://192.168.2.3:5683/basic"}
     start = datetime.datetime.now()
     response = client.get(**kwargs)
     end = datetime.datetime.now()
     name = threading.current_thread().getName()
+    print name + " " + response.payload
     diff = end - start
-    res[name] = (diff.total_seconds(), response.payload)
+    if response is None:
+        res[name] = (diff.total_seconds(), "ERROR")
+    else:
+        res[name] = (diff.total_seconds(), response.payload)
 
 
 if __name__ == '__main__':

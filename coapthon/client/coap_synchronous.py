@@ -16,7 +16,7 @@ __author__ = 'giacomo'
 
 class HelperClientSynchronous(object):
     def __init__(self):
-        self._currentMID = random.randint(0, 100)
+        self._currentMID = random.randint(0, 60000)
         self.relation = {}
         self.received = {}
         self.sent = {}
@@ -94,7 +94,7 @@ class HelperClientSynchronous(object):
         self.stop = False
         attemp = 10
         while not self.stop:
-            self._socket.settimeout(2 * defines.ACK_TIMEOUT)
+            self._socket.settimeout(100)
             try:
                 datagram, addr = self._socket.recvfrom(1152)
             except socket.timeout, e:
@@ -102,11 +102,20 @@ class HelperClientSynchronous(object):
                 # this next if/else is a bit redundant, but illustrates how the
                 # timeout exception is setup
                 if err == 'timed out':
-                    print threading.current_thread().getName() + ' recv timed out, retry later'
-                    attemp -= 1
-                    if attemp <= 0:
-                        return
-                    continue
+                    print threading.current_thread().getName() + ' recv timed out'
+                    # attemp -= 1
+                    # if attemp <= 0:
+                    #     self.condition.acquire()
+                    #     self._response = -1
+                    #     self.condition.notify()
+                    #     self.condition.release()
+                    #     return
+                    # continue
+                    self.condition.acquire()
+                    self._response = -1
+                    self.condition.notify()
+                    self.condition.release()
+                    return
                 else:
                     print e
                     return
@@ -231,13 +240,16 @@ class HelperClientSynchronous(object):
             # self._currentMID = random.randint(0, 1000)
         request.code = defines.inv_codes["GET"]
         self.send(request, endpoint)
-        future_time = random.uniform(defines.ACK_TIMEOUT, (defines.ACK_TIMEOUT * defines.ACK_RANDOM_FACTOR))
+        future_time = 100
         retransmit_count = 0
         self.condition.acquire()
         while True:
             self.condition.wait(timeout=future_time)
             if self._response is not None:
                 break
+            if self._response == -1:
+                self.condition.release()
+                return None
             if request.type == defines.inv_types['CON']:
                 if retransmit_count < defines.MAX_RETRANSMIT and (not request.acknowledged and not request.rejected):
                     print("retransmit")
@@ -251,16 +263,18 @@ class HelperClientSynchronous(object):
         self.condition.release()
         message = self._response
         self._response = None
-        key = hash(str(ip) + str(port) + str(message.mid))
-        if message.type == defines.inv_types["ACK"] and message.code == defines.inv_codes["EMPTY"] \
-                and key in self.sent.keys():
-            # Separate Response
-            self.condition.acquire()
-            self.condition.wait()
-            message = self._response
-            self._response = None
-            self.condition.release()
-        return message
+        if message != -1 and message is not None:
+            key = hash(str(ip) + str(port) + str(message.mid))
+            if message.type == defines.inv_types["ACK"] and message.code == defines.inv_codes["EMPTY"] \
+                    and key in self.sent.keys():
+                # Separate Response
+                self.condition.acquire()
+                self.condition.wait()
+                message = self._response
+                self._response = None
+                self.condition.release()
+            return message
+        return None
 
     def observe(self, *args, **kwargs):
         """

@@ -125,9 +125,10 @@ class CoAP(DatagramProtocol):
                 response = self._request_layer.process(ret)
             else:
                 response = ret
-            self.schedule_retrasmission(message, response, None)
-            log.msg("Send Response")
-            self.send(response, host, port)
+            if response is not None:
+                self.schedule_retrasmission(message, response, None)
+                log.msg("Send Response")
+                self.send(response, host, port)
         elif isinstance(message, Response):
             log.err("Received response")
             rst = Message.new_rst(message)
